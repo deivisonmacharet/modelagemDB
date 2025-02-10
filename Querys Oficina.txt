@@ -1,0 +1,140 @@
+
+CREATE TABLE IF NOT EXISTS `mydb`.`tbCliente` (
+  `tbCliente_id` INT NOT NULL AUTO_INCREMENT,
+  `tbCliente_nome` VARCHAR(45) NOT NULL,
+  `tbCliente_tel` VARCHAR(15) NULL,
+  `tbCliente_email` VARCHAR(45) NULL,
+  `tbCliente_endereco` VARCHAR(255) NULL,
+  PRIMARY KEY (`tbCliente_id`))
+ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS `mydb`.`tbVeiculo` (
+  `tbVeiculo_id` INT NOT NULL AUTO_INCREMENT,
+  `tbVeiculo_placa` VARCHAR(7) NOT NULL,
+  `tbVeiculo_modelo` VARCHAR(45) NOT NULL,
+  `tbVeiculo_marca` VARCHAR(45) NOT NULL,
+  `tbVeiculo_ano` INT(4) NOT NULL,
+  `tbCliente_id` INT(11) NOT NULL,
+  PRIMARY KEY (`tbVeiculo_id`, `tbVeiculo_placa`),
+  UNIQUE INDEX `tbVeiculo_placa_UNIQUE` (`tbVeiculo_placa` ASC) VISIBLE,
+  INDEX `tbCliente_id_idx` (`tbCliente_id` ASC) VISIBLE,
+  CONSTRAINT `tbCliente_id`
+    FOREIGN KEY (`tbCliente_id`)
+    REFERENCES `mydb`.`tbCliente` (`tbCliente_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS `mydb`.`tbOrdem_servic` (
+  `tbOrdem_servic_id` INT NOT NULL AUTO_INCREMENT,
+  `tbOrdem_servic_data_emissao` DATE NOT NULL,
+  `tbOrdem_servic_status` VARCHAR(45) NOT NULL,
+  `tbOrdem_servic_valor_total` DECIMAL NOT NULL,
+  `tbOrdem_servic_data_conclusao` DATE NOT NULL,
+  `tbVeiculo_id` INT(11) NOT NULL,
+  PRIMARY KEY (`tbOrdem_servic_id`),
+  INDEX `tbVeiculo_id_idx` (`tbVeiculo_id` ASC) VISIBLE,
+  CONSTRAINT `tbVeiculo_id`
+    FOREIGN KEY (`tbVeiculo_id`)
+    REFERENCES `mydb`.`tbVeiculo` (`tbVeiculo_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS `mydb`.`tbMecanicos` (
+  `tbMecanico_id` INT NOT NULL AUTO_INCREMENT,
+  `tbMecanico_nome` VARCHAR(255) NOT NULL,
+  `tbMecanico_end` VARCHAR(255) NOT NULL,
+  `tbMecanico_especialidade` VARCHAR(15) NOT NULL,
+  PRIMARY KEY (`tbMecanico_id`))
+ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS `mydb`.`tbEquipe_servic` (
+  `tbEquipe_servic_id` INT NOT NULL AUTO_INCREMENT,
+  `tbOrdem_servic_id` INT(11) NOT NULL,
+  `tbMecanico_id` INT(11) NOT NULL,
+  PRIMARY KEY (`tbEquipe_servic_id`),
+  INDEX `tbMecanico_id_idx` (`tbMecanico_id` ASC) VISIBLE,
+  INDEX `tbOrdem_servic_id_idx` (`tbOrdem_servic_id` ASC) VISIBLE,
+  CONSTRAINT `tbMecanico_id`
+    FOREIGN KEY (`tbMecanico_id`)
+    REFERENCES `mydb`.`tbMecanicos` (`tbMecanico_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `tbOrdem_servic_id`
+    FOREIGN KEY (`tbOrdem_servic_id`)
+    REFERENCES `mydb`.`tbOrdem_servic` (`tbOrdem_servic_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS `mydb`.`tbServico` (
+  `tbServico_id` INT NOT NULL AUTO_INCREMENT,
+  `tbServico_desc` TEXT NOT NULL,
+  `tbServico_valor_mao_obra` DECIMAL NOT NULL,
+  PRIMARY KEY (`tbServico_id`))
+ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS `mydb`.`tbServico_exectd` (
+  `tbServico_exectd_id` INT NOT NULL AUTO_INCREMENT,
+  `tbOrdem_servic_id` INT(11) NOT NULL,
+  `tbServico_id` INT(11) NOT NULL,
+  `tbEquipe_servic_id` INT(11) NOT NULL,
+  PRIMARY KEY (`tbServico_exectd_id`),
+  INDEX `tbEquipe_servic_id_idx` (`tbEquipe_servic_id` ASC) VISIBLE,
+  INDEX `tbServico_id_idx` (`tbServico_id` ASC) VISIBLE,
+  INDEX `tbOrdem_servic_id_idx` (`tbOrdem_servic_id` ASC) VISIBLE,
+  CONSTRAINT `tbEquipe_servic_id`
+    FOREIGN KEY (`tbEquipe_servic_id`)
+    REFERENCES `mydb`.`tbEquipe_servic` (`tbEquipe_servic_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `tbServico_id`
+    FOREIGN KEY (`tbServico_id`)
+    REFERENCES `mydb`.`tbServico` (`tbServico_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `tbOrdem_servic_id`
+    FOREIGN KEY (`tbOrdem_servic_id`)
+    REFERENCES `mydb`.`tbOrdem_servic` (`tbOrdem_servic_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- Querys DIO 
+
+SELECT * FROM tbCliente;
+
+SELECT * FROM tbOrdem_servic WHERE tbOrdem_servic_status = 'Em Aberto';
+
+SELECT 
+    os.tbOrdem_servic_id,
+    SUM(s.tbServico_valor_mao_obra) AS total_servico
+FROM tbServico_exectd se
+JOIN tbServico s ON se.tbServico_id = s.tbServico_id
+JOIN tbOrdem_servic os ON se.tbOrdem_servic_id = os.tbOrdem_servic_id
+GROUP BY os.tbOrdem_servic_id;
+
+SELECT * FROM tbMecanicos ORDER BY tbMecanico_nome ASC;
+
+SELECT 
+    v.tbVeiculo_id, 
+    v.tbVeiculo_modelo, 
+    COUNT(os.tbOrdem_servic_id) AS total_ordens
+FROM tbOrdem_servic os
+JOIN tbVeiculo v ON os.tbVeiculo_id = v.tbVeiculo_id
+GROUP BY v.tbVeiculo_id
+HAVING total_ordens > 1;
+
+SELECT 
+    os.tbOrdem_servic_id, 
+    c.tbCliente_nome, 
+    v.tbVeiculo_modelo, 
+    os.tbOrdem_servic_status
+FROM tbOrdem_servic os
+JOIN tbVeiculo v ON os.tbVeiculo_id = v.tbVeiculo_id
+JOIN tbCliente c ON v.tbCliente_id = c.tbCliente_id;
+
+
+
