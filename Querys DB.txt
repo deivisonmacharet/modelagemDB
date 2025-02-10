@@ -1,0 +1,148 @@
+-- Criação do banco de dados
+CREATE DATABASE ecommerce;
+USE ecommerce;
+
+-- Tabela de Clientes
+CREATE TABLE clientes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    tipo ENUM('PJ', 'PF') NOT NULL,
+    cpf_cnpj VARCHAR(20) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    telefone VARCHAR(20)
+);
+
+-- Tabela de Endereços
+CREATE TABLE enderecos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cliente_id INT,
+    logradouro VARCHAR(255) NOT NULL,
+    cidade VARCHAR(100) NOT NULL,
+    estado VARCHAR(2) NOT NULL,
+    cep VARCHAR(10) NOT NULL,
+    FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
+);
+
+-- Tabela de Fornecedores
+CREATE TABLE fornecedores (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    contato VARCHAR(100)
+);
+
+-- Tabela de Produtos
+CREATE TABLE produtos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    preco DECIMAL(10,2) NOT NULL,
+    fornecedor_id INT,
+    FOREIGN KEY (fornecedor_id) REFERENCES fornecedores(id) ON DELETE SET NULL
+);
+
+-- Tabela de Estoque
+CREATE TABLE estoque (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    produto_id INT,
+    quantidade INT NOT NULL,
+    FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
+);
+
+-- Tabela de Pedidos
+CREATE TABLE pedidos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cliente_id INT,
+    data_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('Pendente', 'Enviado', 'Entregue', 'Cancelado') DEFAULT 'Pendente',
+    codigo_rastreio VARCHAR(50),
+    FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
+);
+
+-- Tabela de Pagamentos
+CREATE TABLE pagamentos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    pedido_id INT,
+    tipo_pagamento ENUM('Cartão', 'Boleto', 'Pix', 'Transferência') NOT NULL,
+    valor DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE
+);
+
+-- Tabela de Itens do Pedido
+CREATE TABLE itens_pedido (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    pedido_id INT,
+    produto_id INT,
+    quantidade INT NOT NULL,
+    preco_unitario DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE,
+    FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
+);
+
+-- Inserção de dados
+INSERT INTO clientes (nome, tipo, cpf_cnpj, email, telefone) VALUES 
+('João Silva', 'PF', '123.456.789-00', 'joao@email.com', '11987654321'),
+('Empresa XYZ', 'PJ', '12.345.678/0001-99', 'contato@xyz.com', '1132154897');
+
+INSERT INTO fornecedores (nome, contato) VALUES 
+('Fornecedor A', 'fornecedorA@email.com'),
+('Fornecedor B', 'fornecedorB@email.com');
+
+INSERT INTO produtos (nome, preco, fornecedor_id) VALUES 
+('Notebook', 4500.00, 1),
+('Mouse', 50.00, 2);
+
+INSERT INTO estoque (produto_id, quantidade) VALUES 
+(1, 10),
+(2, 50);
+
+INSERT INTO pedidos (cliente_id, status, codigo_rastreio) VALUES 
+(1, 'Enviado', 'RA123456BR');
+
+INSERT INTO pagamentos (pedido_id, tipo_pagamento, valor) VALUES 
+(1, 'Cartão', 4500.00);
+
+INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_unitario) VALUES 
+(1, 1, 1, 4500.00);
+
+-- Consultas SQL DIO
+
+-- 1. Quantos pedidos foram feitos por cada cliente?
+SELECT c.nome, COUNT(p.id) AS total_pedidos 
+FROM clientes c 
+LEFT JOIN pedidos p ON c.id = p.cliente_id 
+GROUP BY c.nome;
+
+-- 2. Algum vendedor também é fornecedor?
+SELECT c.nome AS vendedor, f.nome AS fornecedor 
+FROM clientes c 
+JOIN fornecedores f ON c.nome = f.nome;
+
+-- 3. Relação de produtos, fornecedores e estoque
+SELECT p.nome AS produto, f.nome AS fornecedor, e.quantidade AS estoque 
+FROM produtos p 
+JOIN fornecedores f ON p.fornecedor_id = f.id 
+JOIN estoque e ON p.id = e.produto_id;
+
+-- 4. Relação de nomes dos fornecedores e nomes dos produtos
+SELECT f.nome AS fornecedor, p.nome AS produto 
+FROM fornecedores f 
+JOIN produtos p ON f.id = p.fornecedor_id;
+
+-- 5. Valor total das compras por cliente
+SELECT c.nome, SUM(i.quantidade * i.preco_unitario) AS total_gasto 
+FROM clientes c 
+JOIN pedidos p ON c.id = p.cliente_id 
+JOIN itens_pedido i ON p.id = i.pedido_id 
+GROUP BY c.nome 
+HAVING total_gasto > 100;
+
+-- 6. Produtos mais vendidos
+SELECT p.nome, SUM(i.quantidade) AS total_vendido 
+FROM produtos p 
+JOIN itens_pedido i ON p.id = i.produto_id 
+GROUP BY p.nome 
+ORDER BY total_vendido DESC;
+
+-- 7. Valor total do estoque
+SELECT SUM(p.preco * e.quantidade) AS valor_total_estoque 
+FROM produtos p 
+JOIN estoque e ON p.id = e.produto_id;
